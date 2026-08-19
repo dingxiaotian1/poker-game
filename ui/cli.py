@@ -1035,7 +1035,7 @@ class PokerCLI:
         print(_style("◈ 聊天 ◈", Style.CYAN))
         # 显示最近 10 条聊天；空列表给出占位提示，避免误以为聊天区失效
         if not self.chat_log:
-            print(_style("（暂无聊天消息，直接输入文字即可发言）", Style.DIM))
+            print(_style("（暂无聊天消息，直接输入文字即可发言）", ""))
         for line in self.chat_log[-10:]:
             print(line)
 
