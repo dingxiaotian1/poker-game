@@ -141,9 +141,12 @@
       if (e.key === "Enter") sendChat();
     });
 
-    // ---- 清空消息与聊天记录（随时清空，本地操作不影响游戏）----
+    // ---- 清空游戏日志 / 聊天记录（随时清空，本地操作不影响游戏）----
     $("log-clear").addEventListener("click", function () {
       window.Render.clearLog();
+    });
+    $("chat-clear").addEventListener("click", function () {
+      window.Render.clearChat();
     });
 
     // ---- 服务器控制（启动/暂停/恢复/停止）----

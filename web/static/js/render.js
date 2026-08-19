@@ -234,9 +234,14 @@
 
   // ---------- 消息区 ----------
 
-  /** 追加一条渲染为 HTML 的日志/消息 */
-  function addLog(html, cls) {
-    var box = byId("log-box");
+  /**
+   * 追加一条渲染为 HTML 的日志/消息到指定容器。
+   * @param {string} html  已转义的 HTML 内容
+   * @param {string} cls   附加样式类（msg-system / msg-chat / msg-error / msg-warn）
+   * @param {string} boxId 目标容器 ID（默认 #log-box 游戏日志区；聊天消息传 "chat-box"）
+   */
+  function addLog(html, cls, boxId) {
+    var box = byId(boxId || "log-box");
     var line = document.createElement("div");
     line.className = "log-line " + (cls || "");
     line.innerHTML = html;
@@ -249,12 +254,12 @@
     }
   }
 
-  /** 追加系统日志（服务器 log 消息） */
+  /** 追加系统日志（服务器 log 消息，进入"游戏日志"区） */
   function addSystemLog(text) {
     addLog('<span class="time">' + timeNow() + "</span>" + escapeHtml(text), "msg-system");
   }
 
-  /** 追加聊天消息（含发送者、时间戳；房主消息附带专属徽章） */
+  /** 追加聊天消息（含发送者、时间戳；房主消息附带专属徽章，进入"聊天"区） */
   function addChat(who, text, isMe, isHostSender) {
     var cls = isMe ? " who me" : " who";
     // 房主发送的聊天：名字后附加 (房主) 徽章，让所有玩家一眼识别房主身份
@@ -264,7 +269,8 @@
       '<span class="who' + cls + '">' + escapeHtml(who) + "</span>" +
       hostMark + "：" +
       escapeHtml(text),
-      "msg-chat"
+      "msg-chat",
+      "chat-box"   // 聊天消息写入独立的聊天容器，与游戏日志分离
     );
   }
 
@@ -278,10 +284,17 @@
     addLog('<span class="time">' + timeNow() + "</span>" + escapeHtml(text), "msg-warn");
   }
 
-  /** 清空全部消息与聊天记录（仅本地界面操作，不影响游戏状态与服务器） */
+  /** 清空全部游戏日志（仅本地界面操作，不影响游戏状态与服务器） */
   function clearLog() {
     var box = byId("log-box");
-    // 直接清空容器内容；此后新日志/聊天仍会正常追加显示
+    // 直接清空容器内容；此后新日志仍会正常追加显示
+    box.innerHTML = "";
+  }
+
+  /** 清空全部聊天记录（仅本地界面操作，不影响游戏状态与服务器） */
+  function clearChat() {
+    var box = byId("chat-box");
+    // 直接清空容器内容；此后新聊天消息仍会正常追加显示
     box.innerHTML = "";
   }
 
@@ -352,6 +365,7 @@
     renderServerStatus: renderServerStatus,
     showToast: showToast,
     clearLog: clearLog,
+    clearChat: clearChat,
     escapeHtml: escapeHtml,
     cardHtml: cardHtml
   };

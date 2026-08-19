@@ -230,6 +230,12 @@ body.plain .stat-mine {
 body.plain .stat-mine span { color: #1a1a1a; }
 
 /* ---------- 消息聊天区 ---------- */
+/* 子面板（游戏日志 / 聊天）：去掉圆角与深色背景，退化为灰阶文本块 */
+body.plain .sub-panel {
+  background: #ffffff;
+  border: 1px solid #999999;
+  border-radius: 0;
+}
 body.plain .log-box {
   background: #ffffff;
   border: 1px solid #cccccc;
@@ -308,8 +314,15 @@ body.plain .panel-title {
   font-size: 0;
   color: #1a1a1a;
 }
-body.plain .panel-title::after {
-  content: "消息与聊天";
+/* 两个子面板标题分别替换为对应文本：游戏日志 / 聊天 */
+body.plain .panel-title.log-title::after {
+  content: "游戏日志";
+  font-size: 14px;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+body.plain .panel-title.chat-title::after {
+  content: "聊天";
   font-size: 14px;
   font-weight: bold;
   color: #1a1a1a;

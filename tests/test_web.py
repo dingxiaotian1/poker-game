@@ -153,8 +153,12 @@ class WebGatewayTest(unittest.TestCase):
         self.assertIn("join-screen", raw)
         self.assertIn("game-screen", raw)
         self.assertIn("server-controls", raw)
-        self.assertIn("log-box", raw)
         self.assertIn("action-bar", raw)
+        # 消息区拆分为独立的"游戏日志"与"聊天"两个子面板
+        self.assertIn("log-box", raw)
+        self.assertIn("chat-box", raw)
+        self.assertIn("游戏日志", raw)
+        self.assertIn("chat-clear", raw)
 
     def test_static_css_served(self) -> None:
         """样式表应正常返回（主题与响应式设计）。"""

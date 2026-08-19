@@ -188,7 +188,8 @@ class PokerCLI:
 
     Attributes:
         client: 关联的游戏客户端。
-        chat_log: 最近的聊天与日志条目，用于回显。
+        game_log: 最近的牌局事件日志，用于回显（与聊天分离）。
+        chat_log: 最近的聊天消息，用于回显（与游戏事件分离）。
         running: 主循环是否继续运行。
     """
 
@@ -199,7 +200,9 @@ class PokerCLI:
             client: 已连接（或即将连接）的游戏客户端。
         """
         self.client: GameClient = client
-        # 聊天/日志回显缓冲，保留最近若干条
+        # 牌局事件回显缓冲（盲注/下注/摊牌/系统提示等），保留最近 40 条
+        self.game_log: List[str] = []
+        # 聊天回显缓冲（玩家发言），保留最近 30 条；与 game_log 分离
         self.chat_log: List[str] = []
         # 命令队列：输入线程写入，主循环消费
         self._command_queue: "queue.Queue[str]" = queue.Queue()
@@ -391,12 +394,14 @@ class PokerCLI:
         if msg_type == "chat_bc":
             sender = msg.get("sender", "?")
             text = msg.get("text", "")
-            # 聊天以昵称作前缀，便于区分消息来源；
-            # 房主消息附带专属标记（房主身份对所有玩家一致可见）
+            # 聊天以昵称作前缀，便于区分消息来源；发送者名字用青色突出，
+            # 房主消息附带专属标记（房主身份对所有玩家一致可见）。
+            # 聊天写入独立缓冲（_add_chat），与牌局事件分区显示
             host_mark = " (房主)" if sender == self._host_name(self.client.state) else ""
             if host_mark:
                 host_mark = _style(host_mark, Style.YELLOW + Style.BOLD)
-            self._add_log(f"[{sender}]{host_mark} {text}")
+            sender_cn = _style(f"[{sender}]", Style.CYAN)
+            self._add_chat(f"{sender_cn}{host_mark} {text}")
             return True
         if msg_type == "player_joined":
             name = msg.get("name", "?")
@@ -452,7 +457,18 @@ class PokerCLI:
         return False
 
     def _add_log(self, text: str) -> None:
-        """添加一条日志/聊天条目，最多保留 30 条。"""
+        """添加一条牌局事件/系统日志，最多保留 40 条。"""
+        self.game_log.append(text)
+        if len(self.game_log) > 40:
+            # 保留最近 40 条，避免无限增长
+            self.game_log = self.game_log[-40:]
+
+    def _add_chat(self, text: str) -> None:
+        """添加一条聊天消息到聊天缓冲，最多保留 30 条。
+
+        聊天与牌局事件分区存储（self.chat_log / self.game_log），
+        渲染时各自独立展示，互不混入。
+        """
         self.chat_log.append(text)
         if len(self.chat_log) > 30:
             # 保留最近 30 条，避免无限增长
@@ -845,16 +861,18 @@ class PokerCLI:
         """渲染整个桌台界面到终端。
 
         布局采用"分区设计"：
-        - 游戏进度区（上半）：标题栏、关键指标栏、公共牌、玩家表、
+        - 游戏进度区（上部）：标题栏、关键指标栏、公共牌、玩家表、
           我的底牌与行动引导；
-        - 消息聊天区（下半）：用分隔线明确分离，展示最近日志与聊天；
+        - 牌局事件区（中部）：独立展示盲注/下注/摊牌等游戏事件；
+        - 聊天区（下部）：独立展示玩家发言（与牌局事件分离）；
         - 快捷操作区：固定编号菜单 + 输入提示行。
         """
         clear_screen()
         state = self.client.state
         if state is None:
-            # 尚未收到首帧状态：只渲染提示与聊天区，保持界面可用
+            # 尚未收到首帧状态：只渲染提示与事件/聊天区，保持界面可用
             print(_style("正在连接服务器，等待首帧状态...", Style.GREEN))
+            self._render_log_area()
             self._render_chat_area()
             self._render_menu_area()
             self._render_input_hint()
@@ -868,7 +886,9 @@ class PokerCLI:
         self._render_my_info(state)       # 我的底牌 + 行动引导
         self._render_context_hint()       # 当前状态的重要提示
 
-        # ════ 消息聊天区（分区分隔线） ════
+        # ════ 牌局事件区（与聊天区分区隔离） ════
+        self._render_log_area()
+        # ════ 聊天区 ════
         self._render_chat_area()
         # ════ 快捷操作区 ════
         self._render_menu_area()
@@ -1000,12 +1020,22 @@ class PokerCLI:
         prompt = "▶ 轮到你行动: " + "  ".join(hint_parts) + "  （输入数字或直接说话）"
         print(_style(prompt, Style.YELLOW + Style.BOLD))
 
-    def _render_chat_area(self) -> None:
-        """渲染消息聊天区（与游戏进度区分隔）。"""
-        # 分区分隔线：明确提示下方属于聊天/消息区域
+    def _render_log_area(self) -> None:
+        """渲染牌局事件区（盲注/下注/摊牌等游戏事件，与聊天区分隔）。"""
+        # 分区分隔线：明确提示下方属于牌局事件区域
         print("─" * 54)
-        print(_style("◈ 消息与聊天 ◈", Style.GREEN))
-        # 显示最近 10 条日志/聊天
+        print(_style("◈ 牌局事件 ◈", Style.GREEN))
+        # 显示最近 10 条游戏事件日志（game_log 与 chat_log 分离存储）
+        for line in self.game_log[-10:]:
+            print(line)
+
+    def _render_chat_area(self) -> None:
+        """渲染聊天区（仅玩家发言，与牌局事件区分隔）。"""
+        print("─" * 54)
+        print(_style("◈ 聊天 ◈", Style.CYAN))
+        # 显示最近 10 条聊天；空列表给出占位提示，避免误以为聊天区失效
+        if not self.chat_log:
+            print(_style("（暂无聊天消息，直接输入文字即可发言）", Style.DIM))
         for line in self.chat_log[-10:]:
             print(line)
 

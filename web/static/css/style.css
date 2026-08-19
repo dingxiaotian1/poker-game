@@ -358,8 +358,24 @@ input { font-family: inherit; }
   padding: 8px;
   font-size: 13px;
   line-height: 1.7;
-  min-height: 200px;
+  min-height: 0;
 }
+
+/* ---------- 子面板：游戏日志与聊天各自独立成区，视觉隔离 ---------- */
+.sub-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;                       /* 允许子面板在侧栏内收缩，避免溢出 */
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.12);     /* 比侧栏背景略深，形成面板层次 */
+}
+/* 游戏日志区占比更大（牌局事件较频繁），聊天区次之 */
+.sub-panel.log-panel { flex: 1.5; margin-bottom: 10px; }
+.sub-panel.chat-panel { flex: 1; }
+/* 聊天输入行固定在聊天区底部 */
+.sub-panel.chat-panel .chat-input-row { margin-top: 8px; }
 .log-line { word-break: break-word; }
 .log-line .time { color: var(--text-dim); font-size: 11px; margin-right: 6px; }
 .log-line.msg-chat .who { color: #5dade2; font-weight: 600; }

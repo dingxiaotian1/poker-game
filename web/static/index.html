@@ -97,17 +97,27 @@
         </div>
       </section>
 
-      <!-- 消息聊天区 -->
+      <!-- 消息聊天区：拆分为"游戏日志"与"聊天"两个独立子面板，视觉隔离 -->
       <aside class="side-panel">
-        <!-- 面板标题栏：标题文本 + 清空按钮（可随时清空消息与聊天记录） -->
-        <div class="panel-title">
-          ◈ 消息与聊天 ◈
-          <button id="log-clear" class="btn btn-ghost btn-small" title="清空所有消息与聊天记录">清空</button>
+        <!-- 子面板一：游戏日志（牌局事件/系统提示，与聊天完全分离） -->
+        <div class="sub-panel log-panel">
+          <div class="panel-title log-title">
+            ◈ 游戏日志 ◈
+            <button id="log-clear" class="btn btn-ghost btn-small" title="清空所有游戏日志">清空</button>
+          </div>
+          <div id="log-box" class="log-box"></div>
         </div>
-        <div id="log-box" class="log-box"></div>
-        <div class="chat-input-row">
-          <input id="chat-input" type="text" placeholder="输入聊天消息..." maxlength="200" autocomplete="off">
-          <button id="chat-send" class="btn btn-primary">发送</button>
+        <!-- 子面板二：聊天（玩家发言 + 输入框） -->
+        <div class="sub-panel chat-panel">
+          <div class="panel-title chat-title">
+            ◈ 聊天 ◈
+            <button id="chat-clear" class="btn btn-ghost btn-small" title="清空所有聊天记录">清空</button>
+          </div>
+          <div id="chat-box" class="log-box"></div>
+          <div class="chat-input-row">
+            <input id="chat-input" type="text" placeholder="输入聊天消息..." maxlength="200" autocomplete="off">
+            <button id="chat-send" class="btn btn-primary">发送</button>
+          </div>
         </div>
         <button id="help-toggle" class="btn btn-ghost btn-block"><span class="icon">📖</span> 使用帮助</button>
         <div id="in-help-panel" class="help-panel hidden"></div>
