@@ -50,6 +50,9 @@ from core.game import (
     GameState,
     TexasHoldemGame,
 )
+# 【重点注释】摊牌牌型评估：evaluate_best 计算最佳五张、rank_to_name 转为中文牌型名，
+# 供摊牌广播携带每位玩家的底牌与牌型（CLI 端据此完整展示）。
+from core.hand_evaluator import evaluate_best, rank_to_name
 from core.player import Player
 from .protocol import (
     MSG_ACTION,
@@ -807,6 +810,11 @@ class GameServer:
         self._broadcast_new_logs(log_before)
         self._broadcast_state()
         if hand_over:
+            # 【重点注释】摊牌场景（非弃牌结束）才亮牌：showdown_revealed 为 True
+            # 表示本局经过了 _start_showdown，所有未弃牌玩家的底牌应广播给所有人；
+            # 弃牌胜出（无人跟注）不亮牌，符合德州扑克"无需跟注不公开底牌"的规则。
+            if self.game.showdown_revealed:
+                self._broadcast_msg(Msg.showdown(self._build_showdown_results()))
             # 本局结束，通知所有人并附带结果摘要
             self._broadcast_msg(Msg.hand_over(self.game.last_result))
             # 统一事件日志：一局结束（携带胜负结果摘要）
@@ -1040,6 +1048,37 @@ class GameServer:
                 items.append((conn, Msg.state(snapshot)))
         for conn, msg in items:
             conn.send_message(msg)
+
+    def _build_showdown_results(self) -> List[Dict[str, Any]]:
+        """构建摊牌结果列表：每位未弃牌玩家的底牌与最佳牌型。
+
+        供本局摊牌结束（showdown）时广播给所有玩家，客户端据此在界面中
+        清晰、完整地展示所有人的底牌。
+
+        Returns:
+            列表，元素为字典：
+            - player_id: 玩家 ID；
+            - name: 玩家昵称；
+            - hole_cards: 底牌（Card 字典列表）；
+            - hand_name: 最佳牌型中文名（如"两对"）。
+        """
+        results: List[Dict[str, Any]] = []
+        # 摊牌阶段只展示未弃牌玩家的底牌（弃牌者底牌不公开，符合规则）
+        community = self.game.community_cards
+        for p in self.game.seats.all():
+            if p.folded or not p.hole_cards:
+                continue
+            # 用玩家底牌 + 公共牌评估最佳五张，得到牌型中文名
+            rank, _best5 = evaluate_best(list(p.hole_cards) + list(community))
+            results.append(
+                {
+                    "player_id": p.player_id,
+                    "name": p.name,
+                    "hole_cards": [c.to_dict() for c in p.hole_cards],
+                    "hand_name": rank_to_name(rank),
+                }
+            )
+        return results
 
     def _send_hole_cards(self) -> None:
         """将每位玩家的底牌私发给本人。"""

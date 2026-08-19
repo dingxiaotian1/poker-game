@@ -204,6 +204,10 @@ class PokerCLI:
         self.game_log: List[str] = []
         # 聊天回显缓冲（玩家发言），保留最近 30 条；与 game_log 分离
         self.chat_log: List[str] = []
+        # 【重点注释】摊牌展示缓冲：本局摊牌结束（showdown 消息）时填充每位
+        # 未弃牌玩家的底牌与牌型。独立存储、不受事件区条数限制，保证所有玩家
+        # 底牌在界面中完整可见；新一局开始（deal_hole）时清空。
+        self._showdown_lines: List[str] = []
         # 命令队列：输入线程写入，主循环消费
         self._command_queue: "queue.Queue[str]" = queue.Queue()
         self.running: bool = True
@@ -372,7 +376,9 @@ class PokerCLI:
             # 状态更新：客户端已缓存，这里只需触发重绘
             return True
         if msg_type == "deal_hole":
-            # 底牌与"你"直接相关，用青色加粗突出显示
+            # 底牌与"你"直接相关，用青色加粗突出显示；
+            # 同时说明新一局已开始，清空上一局的摊牌展示
+            self._showdown_lines = []
             self._add_log(
                 _style("你的底牌: " + _cards_display(msg.get("cards", [])), Style.CYAN + Style.BOLD)
             )
@@ -413,6 +419,19 @@ class PokerCLI:
             name = msg.get("name", "?")
             count = msg.get("player_count", 0)
             self._add_log(_style(f"[系统] {name} 离开了房间（剩余 {count} 人）", Style.GREEN))
+            return True
+        if msg_type == "showdown":
+            # 【重点注释】摊牌结果：本局为摊牌结束（非弃牌），所有未弃牌玩家的
+            # 底牌与牌型已由服务器广播。独立存入 _showdown_lines 并单独渲染区块，
+            # 避免事件区只显示最近 4 条导致部分玩家底牌被截断而"看不到"。
+            self._showdown_lines = []
+            for r in msg.get("results", []):
+                self._showdown_lines.append(
+                    _style(
+                        f"{r.get('name', '?')}: {_cards_display(r.get('hole_cards', []))} = {r.get('hand_name', '?')}",
+                        Style.BOLD,
+                    )
+                )
             return True
         if msg_type == "hand_over":
             # 展示本局结果摘要并引导进入下一局
@@ -863,8 +882,9 @@ class PokerCLI:
         布局自下而上为（从上到下输出）：
         1. 聊天区（最顶）：玩家发言，先输出；
         2. 游戏进度区：单行标题、指标+公共牌整合行、玩家表、底牌与行动引导；
-        3. 牌局事件区（进度区下方）：盲注/下注/摊牌等游戏事件；
-        4. 快捷操作区：单行全部操作 + 输入提示。
+        3. 摊牌区：本局摊牌结束时展示所有未弃牌玩家的底牌与牌型；
+        4. 牌局事件区：盲注/下注/摊牌等游戏事件；
+        5. 快捷操作区：单行全部操作 + 输入提示。
 
         【重点注释】紧凑性设计：
         - 聊天/事件各只显示最近 3~4 条，控制总高度，适配终端有限尺寸；
@@ -892,7 +912,9 @@ class PokerCLI:
         self._render_players(state)       # 玩家表
         self._render_my_info(state)       # 我的底牌
         self._render_context_hint()       # 状态引导（轮到自己时含行动引导）
-        # ════ ③ 牌局事件区（游戏进度区下方） ════
+        # ════ ③ 摊牌区（本局摊牌结束时展示所有未弃牌玩家底牌，独立于事件区） ════
+        self._render_showdown()
+        # ════ ④ 牌局事件区（游戏进度区下方） ════
         self._render_log_area()
         # ════ ④ 快捷操作区（单行）+ 输入提示 ════
         self._render_menu_area()
@@ -1015,6 +1037,23 @@ class PokerCLI:
         # 轮到自己是最核心引导：黄色加粗突出显示
         prompt = "▶ 轮到你行动: " + "  ".join(hint_parts) + "  （输入数字或直接说话）"
         print(_style(prompt, Style.YELLOW + Style.BOLD))
+
+    def _render_showdown(self) -> None:
+        """渲染摊牌区块：展示本局所有未弃牌玩家的底牌与牌型。
+
+        【重点注释】该区块独立于牌局事件区，不受"最近 4 条"的限制，
+        保证多位玩家摊牌时每位玩家的底牌都完整可见（此前被事件区条数
+        截断，导致部分玩家底牌无法查看）。
+        新一局开始（收到 deal_hole）时会清空，避免残留上一局信息。
+        """
+        # 本局未发生摊牌（如有人弃牌获胜）时不渲染该区块
+        if not self._showdown_lines:
+            return
+        # 摊牌用黄色加粗标题醒目区分，其后逐行展示玩家底牌
+        print(_style("◈ 摊牌 ◈", Style.YELLOW + Style.BOLD))
+        for line in self._showdown_lines:
+            print("  " + line)
+        print("─" * 54)
 
     def _render_log_area(self) -> None:
         """渲染牌局事件区（盲注/下注/摊牌等游戏事件，位于游戏进度区下方）。"""
