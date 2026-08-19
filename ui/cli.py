@@ -861,11 +861,17 @@ class PokerCLI:
         """渲染整个桌台界面到终端。
 
         布局采用"分区设计"：
-        - 游戏进度区（上部）：标题栏、关键指标栏、公共牌、玩家表、
+        - 聊天区（最上）：独立展示玩家发言；
+        - 牌局事件区：独立展示盲注/下注/摊牌等游戏事件；
+        - 游戏进度区（底部）：标题栏、关键指标栏、公共牌、玩家表、
           我的底牌与行动引导；
-        - 牌局事件区（中部）：独立展示盲注/下注/摊牌等游戏事件；
-        - 聊天区（下部）：独立展示玩家发言（与牌局事件分离）；
         - 快捷操作区：固定编号菜单 + 输入提示行。
+
+        【重点注释】聊天区放在最上方是有意设计：终端高度有限，渲染内容
+        超出部分会在底部被滚动，视口最终显示"最后输出"的内容。若把游戏
+        进度区放在最上方，聊天/事件记录多时游戏信息会被滚出视口，影响
+        查看；把聊天区放在最上方后，游戏进度区恰好是最后输出、稳定留在
+        视口内，聊天记录再长也只影响顶部的历史聊天，不影响游戏信息。
         """
         clear_screen()
         state = self.client.state
@@ -878,18 +884,17 @@ class PokerCLI:
             self._render_input_hint()
             return
 
-        # ════ 游戏进度区 ════
+        # ════ 聊天区（最上方，先输出以让游戏信息保持在视口） ════
+        self._render_chat_area()
+        # ════ 牌局事件区（与聊天区分区隔离） ════
+        self._render_log_area()
+        # ════ 游戏进度区（底部，最后输出，稳定留在视口内） ════
         self._render_title_bar(state)     # 标题 + 阶段
         self._render_status_bar(state)    # 关键指标栏（底池/盲注/我的筹码/最高注）
         self._render_community(state)     # 公共牌
         self._render_players(state)       # 玩家表
         self._render_my_info(state)       # 我的底牌 + 行动引导
         self._render_context_hint()       # 当前状态的重要提示
-
-        # ════ 牌局事件区（与聊天区分区隔离） ════
-        self._render_log_area()
-        # ════ 聊天区 ════
-        self._render_chat_area()
         # ════ 快捷操作区 ════
         self._render_menu_area()
         self._render_input_hint()
