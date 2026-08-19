@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>德州扑克 - Web 版</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- 低调模式样式表：默认禁用（disabled），由 actions.js 按需启用。
+       启用后界面呈现为纯文本/文档风格，适合低调使用 -->
+  <link rel="stylesheet" href="/static/css/plain.css" id="plain-css" disabled>
+</head>
+<body>
+  <!-- ================= 加入界面 ================= -->
+  <div id="join-screen" class="join-screen">
+    <div class="join-card">
+      <h1>♠ 德州扑克 ♥</h1>
+      <p class="join-subtitle">多人在线服务器版 · 浏览器客户端</p>
+      <input id="join-name" type="text" placeholder="输入昵称（1~16 个字符）" maxlength="16" autocomplete="off">
+      <button id="join-btn" class="btn btn-primary btn-block">进入牌桌</button>
+      <div id="join-error" class="msg-error hidden"></div>
+      <div class="join-links">
+        <button id="help-btn" class="btn btn-ghost"><span class="icon">📖</span> 使用帮助</button>
+        <button id="status-btn" class="btn btn-ghost"><span class="icon">🖥</span> 服务器状态</button>
+        <label class="plain-toggle" title="切换为纯文本低调模式（无图形/无动画）">
+          <input type="checkbox" id="plain-checkbox"> 低调模式
+        </label>
+      </div>
+      <div id="server-status-box" class="server-status-box hidden"></div>
+      <div id="help-panel" class="help-panel hidden"></div>
+    </div>
+  </div>
+
+  <!-- ================= 游戏主界面 ================= -->
+  <div id="game-screen" class="game-screen hidden">
+    <!-- 顶栏：品牌 + 服务器控制 + 我的信息 -->
+    <header class="topbar">
+      <div class="brand">♠ 德州扑克 ♥</div>
+      <div class="server-status">
+        <span id="server-light" class="light light-off"></span>
+        <span id="server-text">服务器未知</span>
+      </div>
+      <div class="server-controls" title="服务器控制台（管理员）">
+        <button id="ctl-start" class="btn btn-small">启动</button>
+        <button id="ctl-pause" class="btn btn-small">暂停</button>
+        <button id="ctl-resume" class="btn btn-small">恢复</button>
+        <button id="ctl-stop" class="btn btn-small btn-danger">停止</button>
+      </div>
+      <button id="plain-toggle-btn" class="btn btn-small" title="纯文本低调模式：无图形/无动画">低调模式</button>
+      <div class="my-info"><span class="icon">👤</span> <span id="my-name"></span><span id="my-host-tag" class="host-tag hidden"></span></div>
+    </header>
+
+    <!-- 关键指标栏：游戏进度核心信息一目了然 -->
+    <div class="stats-bar">
+      <div class="stat"><label>对局数</label><span id="stat-hand">0</span></div>
+      <div class="stat"><label>阶段</label><span id="stat-phase">等待开始</span></div>
+      <div class="stat"><label>底池</label><span id="stat-pot">0</span></div>
+      <div class="stat"><label>盲注</label><span id="stat-blinds">10/20</span></div>
+      <div class="stat stat-mine"><label>我的筹码</label><span id="stat-chips">-</span></div>
+      <div class="stat"><label>在线玩家</label><span id="stat-online">0/10</span></div>
+    </div>
+
+    <!-- 主布局：左侧牌桌区 / 右侧消息聊天区（响应式） -->
+    <main class="layout">
+      <!-- 牌桌区 -->
+      <section class="table-area">
+        <div id="table" class="table">
+          <div class="table-inner">
+            <!-- 社区公共牌 -->
+            <div id="community" class="community">
+              <span class="placeholder">等待发牌</span>
+            </div>
+            <!-- 底池金额 -->
+            <div class="pot-display">底池 <span id="pot-amount">0</span></div>
+            <!-- 玩家座位（JS 动态渲染） -->
+            <div id="seats" class="seats"></div>
+          </div>
+        </div>
+
+        <!-- 行动区：轮到自己时显示 -->
+        <div id="action-bar" class="action-bar hidden">
+          <button data-act="fold" class="btn act-btn btn-danger">弃牌</button>
+          <button data-act="check" class="btn act-btn">让牌</button>
+          <button data-act="call" class="btn act-btn">跟注</button>
+          <span class="raise-group">
+            <button data-act="raise" class="btn act-btn btn-primary">加注到</button>
+            <input id="raise-amount" type="number" min="0" step="10" placeholder="金额">
+          </span>
+          <button data-act="all_in" class="btn act-btn btn-warn">全下</button>
+        </div>
+
+        <!-- 房间操作区（房主专属按钮禁用逻辑在 render 中处理） -->
+        <div id="room-bar" class="room-bar">
+          <button id="room-start" class="btn act-btn btn-primary"><span class="icon">▶</span> 开始游戏</button>
+          <button id="room-reset" class="btn act-btn btn-danger"><span class="icon">⟲</span> 重置房间</button>
+          <button id="room-players" class="btn act-btn"><span class="icon">👥</span> 玩家列表</button>
+          <div id="toast" class="toast hidden"></div>
+        </div>
+      </section>
+
+      <!-- 消息聊天区 -->
+      <aside class="side-panel">
+        <!-- 面板标题栏：标题文本 + 清空按钮（可随时清空消息与聊天记录） -->
+        <div class="panel-title">
+          ◈ 消息与聊天 ◈
+          <button id="log-clear" class="btn btn-ghost btn-small" title="清空所有消息与聊天记录">清空</button>
+        </div>
+        <div id="log-box" class="log-box"></div>
+        <div class="chat-input-row">
+          <input id="chat-input" type="text" placeholder="输入聊天消息..." maxlength="200" autocomplete="off">
+          <button id="chat-send" class="btn btn-primary">发送</button>
+        </div>
+        <button id="help-toggle" class="btn btn-ghost btn-block"><span class="icon">📖</span> 使用帮助</button>
+        <div id="in-help-panel" class="help-panel hidden"></div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- 确认弹窗（重置房间等高风险操作） -->
+  <div id="modal-mask" class="modal-mask hidden">
+    <div class="modal">
+      <div id="modal-title" class="modal-title">确认操作</div>
+      <div id="modal-text" class="modal-text"></div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn">取消</button>
+        <button id="modal-ok" class="btn btn-danger">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/help.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/sse.js"></script>
+  <script src="/static/js/state.js"></script>
+  <script src="/static/js/render.js"></script>
+  <script src="/static/js/actions.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

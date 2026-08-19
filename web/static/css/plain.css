@@ -1,0 +1,345 @@
+/* ==========================================================================
+ * plain.css —— 低调模式（纯文本极简主题）
+ *
+ * 用途：在非工作时间低调使用。将界面呈现为"文档/文本编辑器"风格：
+ *   - 纯文本排版，无图片、无图标、无动画、无渐变、无阴影
+ *   - 单色灰阶配色（黑/白/灰），仅保留必要的视觉层级
+ *   - 等宽字体，贴近记事本 / 文本编辑器的观感
+ *
+ * 加载方式：由 JS 动态切换（默认不加载）。启用时给 <body> 添加
+ * .plain 类，同时启用本样式表（见 actions.js 的 togglePlainMode）。
+ * ========================================================================== */
+
+/* ---------- 全局：一键消除所有"图形化/注意力"元素 ---------- */
+body.plain *,
+body.plain *::before,
+body.plain *::after {
+  /* 禁用一切动画与过渡（低调模式最重要的要求之一：无任何动态效果） */
+  animation: none !important;
+  transition: none !important;
+  /* 去除阴影与渐变，避免视觉层次感过强 */
+  box-shadow: none !important;
+  text-shadow: none !important;
+  background-image: none !important;
+}
+
+/* ---------- 基础配色：单色文档风 ---------- */
+body.plain {
+  background: #ffffff;
+  color: #1a1a1a;
+  font-family: "Cascadia Mono", "Consolas", "Courier New", "PingFang SC",
+    "Microsoft YaHei", monospace;
+  font-size: 13px;
+}
+
+/* 文本灰阶层级：主文字 #1a1a1a / 次要 #444 / 弱化 #888 */
+body.plain .text-main,
+body.plain .brand,
+body.plain .stat span,
+body.plain .seat-name,
+body.plain .pot-display,
+body.plain .panel-title,
+body.plain .modal-title {
+  color: #1a1a1a;
+}
+body.plain .text-dim,
+body.plain .stat label,
+body.plain .seat-chips,
+body.plain .seat-bet,
+body.plain .seat-state,
+body.plain .join-subtitle,
+body.plain .log-line.msg-system,
+body.plain .help-panel {
+  color: #555555;
+}
+
+/* ---------- 容器：白底灰边，去掉圆角渐变装饰 ---------- */
+body.plain .join-screen,
+body.plain .game-screen {
+  background: #ffffff;
+  min-height: 100vh;
+}
+body.plain .join-card {
+  background: #ffffff;
+  border: 1px solid #bbbbbb;
+  border-radius: 0;
+  box-shadow: none;
+}
+body.plain .topbar,
+body.plain .stats-bar,
+body.plain .side-panel,
+body.plain .action-bar,
+body.plain .room-bar {
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  border-radius: 0;
+}
+body.plain .topbar {
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+/* ---------- 牌桌：纯文本表格外观 ---------- */
+body.plain .table {
+  background: #ffffff;
+  border: 1px solid #999999;
+  border-radius: 0;
+  min-height: 200px;
+}
+body.plain .table-inner { gap: 6px; }
+body.plain .community { min-height: 30px; }
+body.plain .community .placeholder { color: #888888; }
+
+/* 扑克牌：去除卡片图形，退化为纯文本（如 A♠） */
+body.plain .poker-card {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  width: auto;
+  height: auto;
+  font-size: 15px;
+  font-weight: normal;
+  color: #1a1a1a;
+  display: inline;
+  padding: 0;
+}
+body.plain .poker-card .suit { font-size: 15px; }
+/* 红色花色在单色模式下统一为黑色（黑桃/红心/方块/梅花不再用颜色区分） */
+body.plain .poker-card.red { color: #1a1a1a; }
+/* 牌背占位：纯文本 "??" 代替图形 */
+body.plain .poker-card.back {
+  background: transparent;
+  border: none;
+}
+body.plain .poker-card.back::after { content: "??"; }
+
+/* ---------- 玩家座位：文本行样式 ---------- */
+body.plain .seats {
+  display: block;
+  text-align: left;
+}
+body.plain .seat {
+  background: transparent;
+  border: 1px solid #dddddd;
+  border-radius: 0;
+  margin-bottom: 2px;
+  padding: 2px 8px;
+  min-width: 0;
+  width: 100%;
+}
+body.plain .seat.acting {
+  border-color: #000000;
+  background: #f2f2f2;
+}
+body.plain .seat.folded { color: #888888; }
+body.plain .seat.is-me { background: #f2f2f2; border-color: #666666; }
+/* 庄家标记：图形圆点改为文本 "(D)" */
+body.plain .seat.dealer::after {
+  content: "(D)";
+  position: static;
+  background: transparent;
+  color: #444444;
+  border: none;
+  border-radius: 0;
+  width: auto;
+  height: auto;
+  font-size: 11px;
+  margin-left: 4px;
+  display: inline;
+}
+/* 座位卡片：小牌也退化为纯文本 */
+body.plain .seat .poker-card {
+  font-size: 13px;
+  margin-right: 4px;
+}
+
+/* ---------- 状态灯：图形圆点改为文本 ---------- */
+body.plain .light {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+}
+body.plain .light-on::after { content: "[运行中]"; color: #1a1a1a; }
+body.plain .light-pause::after { content: "[已暂停]"; color: #555555; }
+body.plain .light-off::after { content: "[未运行]"; color: #888888; }
+body.plain .server-status { gap: 2px; }
+body.plain .server-status span:last-child { color: #555555; }
+
+/* ---------- 按钮：灰阶极简 ---------- */
+body.plain .btn {
+  background: #ffffff;
+  border: 1px solid #999999;
+  border-radius: 0;
+  color: #1a1a1a;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+body.plain .btn:hover:not(:disabled) {
+  background: #eeeeee;
+  filter: none;
+  transform: none;
+}
+body.plain .btn:disabled {
+  color: #aaaaaa;
+  border-color: #dddddd;
+  background: #fafafa;
+}
+body.plain .btn-primary,
+body.plain .btn-danger,
+body.plain .btn-warn {
+  background: #ffffff;
+  border-color: #666666;
+  color: #1a1a1a;
+}
+/* 危险/警告操作以文本强调（加粗）代替颜色 */
+body.plain .btn-danger { border-color: #000000; font-weight: bold; }
+body.plain .btn-warn { font-weight: bold; }
+body.plain .act-btn { min-width: 60px; }
+
+/* 行动区：去掉金色脉冲动画，恢复静态灰边 */
+body.plain .action-bar {
+  border: 1px solid #666666;
+}
+
+/* 输入框：灰边白底 */
+body.plain input,
+body.plain .raise-group input {
+  background: #ffffff;
+  border: 1px solid #999999;
+  border-radius: 0;
+  color: #1a1a1a;
+  padding: 4px 6px;
+}
+body.plain input:focus { border-color: #000000; }
+
+/* ---------- 关键指标栏：灰阶文本 ---------- */
+body.plain .stat {
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  border-radius: 0;
+  text-align: left;
+}
+body.plain .stat-mine {
+  border-color: #000000;
+  border-style: double;
+}
+body.plain .stat-mine span { color: #1a1a1a; }
+
+/* ---------- 消息聊天区 ---------- */
+body.plain .log-box {
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  border-radius: 0;
+  font-size: 13px;
+}
+body.plain .log-line.msg-chat .who,
+body.plain .log-line.msg-chat .who.me,
+body.plain .log-line.msg-warn {
+  color: #1a1a1a;
+  font-weight: bold;
+}
+body.plain .log-line.msg-info { color: #444444; }
+body.plain .log-line.msg-error { color: #1a1a1a; font-weight: bold; }
+body.plain .chat-input-row input {
+  background: #ffffff;
+  border: 1px solid #999999;
+  border-radius: 0;
+  color: #1a1a1a;
+}
+
+/* ---------- 提示条与弹窗 ---------- */
+body.plain .toast {
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 0;
+  color: #1a1a1a;
+  font-size: 13px;
+}
+body.plain .modal-mask { background: rgba(0, 0, 0, 0.4); }
+body.plain .modal {
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 0;
+  box-shadow: none;
+}
+body.plain .modal-text { color: #333333; }
+
+/* ---------- 帮助面板 ---------- */
+body.plain .help-panel {
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  border-radius: 0;
+}
+body.plain .help-panel h4 { color: #1a1a1a; }
+body.plain .help-panel b { color: #1a1a1a; }
+
+/* 加入页错误提示：加粗黑字 */
+body.plain .msg-error { color: #1a1a1a; font-weight: bold; }
+body.plain .server-status-box {
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  border-radius: 0;
+  color: #333333;
+}
+
+/* 低调模式下隐藏装饰性的扑克花色符号（减少图形感）：
+ * 品牌与标题中的 ♠♥♦♣ 以文字替代视觉符号 */
+body.plain .brand::before { content: ""; }
+body.plain h1::after { content: ""; }
+
+/* ---------- 图标与装饰符号：低调模式无任何图形元素 ---------- */
+/* 按钮中的 emoji 图标（📖🖥👥▶⟲👤 等）直接隐藏，只留纯文本 */
+body.plain .icon { display: none; }
+/* 房主专属标识徽章：去掉金色与圆角，退化为单色加粗文本 */
+body.plain .host-tag {
+  color: #000;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-left: 4px;
+  font-weight: bold;
+}
+/* 面板标题中的 ◈ 装饰符以纯文本替换（用伪元素覆盖原文本） */
+body.plain .panel-title {
+  font-size: 0;
+  color: #1a1a1a;
+}
+body.plain .panel-title::after {
+  content: "消息与聊天";
+  font-size: 14px;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+/* 面板标题内的"清空"按钮：面板标题为 font-size:0，需恢复按钮字号 */
+body.plain .panel-title .btn {
+  font-size: 12px;
+}
+/* 页面标题与品牌：去掉花色符号，呈现纯文本标题 */
+body.plain h1 {
+  font-size: 0;
+}
+body.plain h1::after {
+  content: "德州扑克";
+  font-size: 24px;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+body.plain .brand {
+  font-size: 0;
+}
+body.plain .brand::after {
+  content: "德州扑克";
+  font-size: 15px;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+
+/* ---------- 响应式：窄屏时保持可读性 ---------- */
+@media (max-width: 900px) {
+  body.plain .seat { width: 100%; }
+  body.plain .stats-bar { gap: 4px; }
+}
