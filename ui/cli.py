@@ -858,20 +858,20 @@ class PokerCLI:
     # ---------- 渲染（分区布局） ----------
 
     def _render(self) -> None:
-        """渲染整个桌台界面到终端。
+        """渲染整个桌台界面到终端（紧凑分区布局）。
 
-        布局采用"分区设计"：
-        - 聊天区（最上）：独立展示玩家发言；
-        - 牌局事件区：独立展示盲注/下注/摊牌等游戏事件；
-        - 游戏进度区（底部）：标题栏、关键指标栏、公共牌、玩家表、
-          我的底牌与行动引导；
-        - 快捷操作区：固定编号菜单 + 输入提示行。
+        布局自下而上为（从上到下输出）：
+        1. 聊天区（最顶）：玩家发言，先输出；
+        2. 游戏进度区：单行标题、指标+公共牌整合行、玩家表、底牌与行动引导；
+        3. 牌局事件区（进度区下方）：盲注/下注/摊牌等游戏事件；
+        4. 快捷操作区：单行全部操作 + 输入提示。
 
-        【重点注释】聊天区放在最上方是有意设计：终端高度有限，渲染内容
-        超出部分会在底部被滚动，视口最终显示"最后输出"的内容。若把游戏
-        进度区放在最上方，聊天/事件记录多时游戏信息会被滚出视口，影响
-        查看；把聊天区放在最上方后，游戏进度区恰好是最后输出、稳定留在
-        视口内，聊天记录再长也只影响顶部的历史聊天，不影响游戏信息。
+        【重点注释】紧凑性设计：
+        - 聊天/事件各只显示最近 3~4 条，控制总高度，适配终端有限尺寸；
+        - 游戏进度区是核心信息，放在聊天之后、事件之前，配合条数控制
+          保证其始终留在视口内；
+        - 终端超出部分从顶部截断滚动，聊天区在最上，历史聊天被截断
+          也不影响下方游戏信息。
         """
         clear_screen()
         state = self.client.state
@@ -884,33 +884,29 @@ class PokerCLI:
             self._render_input_hint()
             return
 
-        # ════ 聊天区（最上方，先输出以让游戏信息保持在视口） ════
+        # ════ ① 聊天区（最顶部，先输出，保证游戏信息不被顶出视口） ════
         self._render_chat_area()
-        # ════ 牌局事件区（与聊天区分区隔离） ════
-        self._render_log_area()
-        # ════ 游戏进度区（底部，最后输出，稳定留在视口内） ════
-        self._render_title_bar(state)     # 标题 + 阶段
-        self._render_status_bar(state)    # 关键指标栏（底池/盲注/我的筹码/最高注）
-        self._render_community(state)     # 公共牌
+        # ════ ② 游戏进度区（核心信息） ════
+        self._render_title_bar(state)     # 单行标题 + 阶段
+        self._render_status_bar(state)    # 关键指标 + 公共牌（整合为一行）
         self._render_players(state)       # 玩家表
-        self._render_my_info(state)       # 我的底牌 + 行动引导
-        self._render_context_hint()       # 当前状态的重要提示
-        # ════ 快捷操作区 ════
+        self._render_my_info(state)       # 我的底牌
+        self._render_context_hint()       # 状态引导（轮到自己时含行动引导）
+        # ════ ③ 牌局事件区（游戏进度区下方） ════
+        self._render_log_area()
+        # ════ ④ 快捷操作区（单行）+ 输入提示 ════
         self._render_menu_area()
         self._render_input_hint()
 
     def _render_title_bar(self, state: dict) -> None:
-        """渲染顶部标题栏：局数 + 当前阶段（加粗醒目）。"""
-        print("╔" + "═" * 52 + "╗")
+        """渲染标题栏：局数 + 当前阶段，压缩为单行（去掉上下边框，节省高度）。"""
         title = f"德州扑克 · 第 {state.get('hand_number', 0)} 局"
         state_name = _state_name_cn(state.get("state_name", ""))
-        # 标题与阶段组合，阶段用绿色加粗突出当前进度
-        line = f"{title}    [阶段: {state_name}]"
-        print(_style(f"║{line:^52}║", Style.BOLD))
-        print("╚" + "═" * 52 + "╝")
+        # 标题用加粗，阶段用绿色加粗突出当前进度；单行紧凑显示
+        print(_style(title, Style.BOLD) + _style(f"  [阶段: {state_name}]", Style.GREEN + Style.BOLD))
 
     def _render_status_bar(self, state: dict) -> None:
-        """渲染关键指标栏：底池/盲注/我的筹码/当前最高注。
+        """渲染关键指标与公共牌（整合为同一行，信息紧凑）。
 
         Args:
             state: 桌状态快照。
@@ -926,21 +922,16 @@ class PokerCLI:
             if p.get("player_id") == self.client.player_id:
                 my_chips = p.get("chips", 0)
                 break
-        # 关键指标用青色标注"我的筹码"，其余为默认色
-        parts = [
-            f"底池: {pot_total}",
-            f"盲注: {small_blind}/{big_blind}",
-            _style(f"我的筹码: {my_chips}", Style.CYAN + Style.BOLD),
-            f"最高注: {current_bet}",
-        ]
-        print("  " + "    ".join(parts))
-        print("-" * 54)
-
-    def _render_community(self, state: dict) -> None:
-        """渲染公共牌区域。"""
         community = state.get("community_cards", [])
-        print(f"公共牌: {_cards_display(community)}")
-        print("-" * 54)
+        # 关键指标用青色标注"我的筹码"，其余为默认色；
+        # 公共牌并入本行，减少一个独立区域的占用
+        parts = [
+            f"底池:{pot_total}",
+            f"盲注:{small_blind}/{big_blind}",
+            _style(f"筹码:{my_chips}", Style.CYAN + Style.BOLD),
+            f"最高注:{current_bet}",
+        ]
+        print("  " + "  ".join(parts) + f"    公共牌:{_cards_display(community)}")
 
     def _render_players(self, state: dict) -> None:
         """渲染玩家列表区域（含庄家/当前行动者/自己高亮）。"""
@@ -1026,59 +1017,60 @@ class PokerCLI:
         print(_style(prompt, Style.YELLOW + Style.BOLD))
 
     def _render_log_area(self) -> None:
-        """渲染牌局事件区（盲注/下注/摊牌等游戏事件，与聊天区分隔）。"""
+        """渲染牌局事件区（盲注/下注/摊牌等游戏事件，位于游戏进度区下方）。"""
         # 分区分隔线：明确提示下方属于牌局事件区域
         print("─" * 54)
         print(_style("◈ 牌局事件 ◈", Style.GREEN))
-        # 显示最近 10 条游戏事件日志（game_log 与 chat_log 分离存储）
-        for line in self.game_log[-10:]:
+        # 只显示最近 4 条事件，控制高度，避免挤占游戏进度区
+        for line in self.game_log[-4:]:
             print(line)
 
     def _render_chat_area(self) -> None:
-        """渲染聊天区（仅玩家发言，与牌局事件区分隔）。"""
+        """渲染聊天区（界面最顶部，仅玩家发言，与牌局事件区分隔）。"""
         print("─" * 54)
         print(_style("◈ 聊天 ◈", Style.CYAN))
-        # 显示最近 10 条聊天；空列表给出占位提示，避免误以为聊天区失效
+        # 只显示最近 3 条聊天；空列表给出占位提示，避免误以为聊天区失效
         if not self.chat_log:
             print(_style("（暂无聊天消息，直接输入文字即可发言）", ""))
-        for line in self.chat_log[-10:]:
+        for line in self.chat_log[-3:]:
             print(line)
 
     def _render_menu_area(self) -> None:
-        """渲染快捷操作菜单区（按功能分类、固定编号）。"""
-        print("─" * 54)
+        """渲染快捷操作菜单区：全部操作合并为单行（适配终端有限宽度）。
+
+        【重点注释】为满足"单行完整显示"：
+        - 房间项使用短名（开始/玩家/重置），去掉 [ ] 符号压缩宽度；
+        - 加注项仅保留最小加注值（完整范围在行动引导黄行中提示）；
+        - 禁用项用默认色显示，不再追加"（不可用）/（仅房主）"等冗长标注，
+          不可用操作直接输入会收到明确的错误/忽略提示。
+        """
         items = self._build_menu()
-
-        # 将菜单项按"行动/房间"两个分区组织渲染
-        action_items = [it for it in items if it.key in MENU_ACTION_KEYS]
-        room_items = [it for it in items if it.key in MENU_ROOM_KEYS]
-
-        print("快捷操作（输入数字选择）:")
-        # 行动区：只有启用项用青色加粗，禁用项用灰色（普通色）提示不可用
-        action_parts: List[str] = []
-        for it in action_items:
+        # 房间项短名映射，压缩单行宽度
+        short_labels = {"开始游戏": "开始", "玩家列表": "玩家", "重置房间": "重置"}
+        parts: List[str] = []
+        for it in items:
+            label = short_labels.get(it.label, it.label)
+            # 加注项含金额范围（如 40~1000），单行压缩为最小加注值
+            if label.startswith("加注(") and "~" in label:
+                label = f"加注({label[3:-1].split('~')[0]})"
+            text = f"{it.key}{label}"
+            # 启用项青色加粗突出可操作性，禁用项默认色提示不可用
             if it.enabled:
-                action_parts.append(_style(f"[{it.key}]{it.label}", Style.CYAN + Style.BOLD))
+                parts.append(_style(text, Style.CYAN + Style.BOLD))
             else:
-                action_parts.append(f"[{it.key}]{it.label}(不可用)")
-        print("  行动: " + "  ".join(action_parts))
-
-        room_parts: List[str] = []
-        for it in room_items:
-            if it.enabled:
-                room_parts.append(_style(f"[{it.key}]{it.label}", Style.CYAN + Style.BOLD))
-            else:
-                room_parts.append(f"[{it.key}]{it.label}(仅房主)")
-        print("  房间: " + "  ".join(room_parts))
+                parts.append(text)
+        # 行动组 [1~4] 与房间组 [5~9] 之间用竖线分隔
+        action_text = "  ".join(parts[:4])
+        room_text = "  ".join(parts[4:])
+        print("快捷: " + action_text + "  |  " + room_text)
 
     def _render_input_hint(self) -> None:
-        """渲染输入提示区：说明当前支持的三种输入方式。
+        """渲染输入提示区（单行）：说明当前支持的三种输入方式。
 
         若处于"重置确认"状态，则优先显示确认提示框（y/n），
         告知用户当前需要做的是确认还是取消重置操作。
         """
         print("─" * 54)
-        self._render_context_hint()
         if self._pending_reset_confirm:
             # 【重点注释】确认提示框：重置属高风险操作，进入确认状态后
             # 输入提示行替换为明确的确认引导，防止误操作
@@ -1089,7 +1081,7 @@ class PokerCLI:
                 )
             )
         else:
-            print("输入: 数字=快捷操作，/命令，或直接说话聊天（/help 帮助）")
+            print("输入: 数字=操作 /命令 或 直接说话（/help 帮助）")
 
     def _render_context_hint(self) -> None:
         """根据当前游戏状态输出一行上下文引导，降低玩家理解门槛。
