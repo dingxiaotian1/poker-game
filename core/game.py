@@ -59,6 +59,20 @@ MIN_PLAYERS: int = 2                 # 最少开局人数
 MAX_PLAYERS: int = 10                # 最多同桌人数
 
 
+def _fmt_chips(amount: int) -> str:
+    """将筹码数值格式化为带货币单位的显示文本。
+
+    Args:
+        amount: 筹码数值（整数）。
+
+    Returns:
+        形如 "$50" 的字符串。美元符号紧贴数值是国际惯例写法，
+        符号本身即充当单位与数值之间的分隔，保持界面文本紧凑。
+        全项目筹码日志统一经此格式化，保证单位风格一致。
+    """
+    return f"${amount}"
+
+
 class GameError(Exception):
     """游戏规则违规异常，携带可读的错误信息供 UI 展示。"""
 
@@ -287,7 +301,7 @@ class TexasHoldemGame:
         # 实际投入可能小于盲注（筹码不足时全下）
         actual = player.bet(amount)
         self.pots.collect(actual)
-        self._log(f"{player.name} 下 {label} {actual}")
+        self._log(f"{player.name} 下 {label} {_fmt_chips(actual)}")
 
     def _get_blind_positions(self) -> Tuple[int, int]:
         """计算小盲注与大盲注位置。
@@ -425,10 +439,10 @@ class TexasHoldemGame:
         # 若跟注金额不足（全下），描述为全下
         if player.all_in:
             player.mark_acted(f"全下 {actual}")
-            self._log(f"{player.name} 全下 {actual}")
+            self._log(f"{player.name} 全下 {_fmt_chips(actual)}")
         else:
             player.mark_acted(f"跟注 {actual}")
-            self._log(f"{player.name} 跟注 {actual}")
+            self._log(f"{player.name} 跟注 {_fmt_chips(actual)}")
 
     def _do_raise(self, player: Player, raise_to: int) -> None:
         """处理加注到指定金额。
@@ -463,7 +477,7 @@ class TexasHoldemGame:
         # 更新最小加注为本次加注增量
         self.min_raise = increment
         player.mark_acted(f"加注到 {self.current_bet}")
-        self._log(f"{player.name} 加注到 {self.current_bet}")
+        self._log(f"{player.name} 加注到 {_fmt_chips(self.current_bet)}")
 
         # 【重新开启行动】加注后，其他可行动玩家需要再次行动
         for p in self.seats.all():
@@ -495,7 +509,7 @@ class TexasHoldemGame:
                 if player.current_bet > self.current_bet:
                     self.current_bet = player.current_bet
         player.mark_acted(f"全下 {actual}")
-        self._log(f"{player.name} 全下 {actual}（总投注 {player.current_bet}）")
+        self._log(f"{player.name} 全下 {_fmt_chips(actual)}（总投注 {_fmt_chips(player.current_bet)}）")
 
     def _advance_after_action(self) -> None:
         """一次行动完成后，推进流程：找到下一个行动者或结束本轮。"""
@@ -608,11 +622,11 @@ class TexasHoldemGame:
             player = self.seats.get(pid)
             if player:
                 player.chips += amount
-                self._log(f"{player.name} 赢得 {amount} 筹码")
+                self._log(f"{player.name} 赢得 {_fmt_chips(amount)}")
 
         # 生成本局结果摘要，供 UI 醒目展示
         winner_lines = [
-            f"{self.seats.get(pid).name} 赢得 {amount}"
+            f"{self.seats.get(pid).name} 赢得 {_fmt_chips(amount)}"
             for pid, amount in payouts.items()
             if amount > 0 and self.seats.get(pid) is not None
         ]
@@ -637,9 +651,9 @@ class TexasHoldemGame:
             p = self.seats.get(pid)
             if p:
                 p.chips += amount
-        self._log(f"{winner.name} 未被跟注，赢得 {self.pots.total} 筹码")
+        self._log(f"{winner.name} 未被跟注，赢得 {_fmt_chips(self.pots.total)}")
         # 生成本局结果摘要（未摊牌场景）
-        self.last_result = f"{winner.name} 赢得 {self.pots.total} 筹码（无人跟注）"
+        self.last_result = f"{winner.name} 赢得 {_fmt_chips(self.pots.total)}（无人跟注）"
         self.state = GameState.HAND_OVER
 
     # ---------- 状态查询 ----------

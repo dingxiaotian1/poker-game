@@ -439,7 +439,7 @@ class RemovePlayerFlowTest(unittest.TestCase):
         # 只剩一名未弃牌玩家，本局应立即结束
         self.assertEqual(game.state, GameState.HAND_OVER)
         # 底池 = 小盲 10 + 大盲 20 = 30，全部判给幸存者
-        self.assertEqual(game.last_result, f"{actor.name} 赢得 30 筹码（无人跟注）")
+        self.assertEqual(game.last_result, f"{actor.name} 赢得 $30（无人跟注）")
 
     def test_removed_player_chips_not_lost(self) -> None:
         """掉线玩家的投入应保留在底池中，筹码不丢失。"""

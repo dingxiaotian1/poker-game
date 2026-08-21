@@ -29,6 +29,8 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.card import RANK_DISPLAY, SUIT_SYMBOL, Card
+# 引入统一筹码格式化函数，保证 CLI 与服务器日志的货币单位风格完全一致
+from core.game import _fmt_chips
 from network.client import ClientError, GameClient
 
 # 两次全屏重绘的最小时间间隔（秒）：
@@ -518,7 +520,7 @@ class PokerCLI:
         # [2] 跟注/让牌：无人加注时可让牌，否则需跟注
         if can_act and "call" in options:
             call_amount = int(opts.get("call_amount", 0) or 0)
-            items.append(MenuItem(2, f"跟注({call_amount})", "call", enabled=True))
+            items.append(MenuItem(2, f"跟注({_fmt_chips(call_amount)})", "call", enabled=True))
         elif can_act and "check" in options:
             items.append(MenuItem(2, "让牌", "check", enabled=True))
         else:
@@ -527,7 +529,7 @@ class PokerCLI:
         if can_act and "raise" in options:
             min_raise = int(opts.get("min_raise_to", 0) or 0)
             max_raise = int(opts.get("max_raise_to", 0) or 0)
-            items.append(MenuItem(3, f"加注({min_raise}~{max_raise})", "raise", enabled=True))
+            items.append(MenuItem(3, f"加注({_fmt_chips(min_raise)}~{_fmt_chips(max_raise)})", "raise", enabled=True))
         else:
             items.append(MenuItem(3, "加注", "raise", enabled=False))
         # [4] 全下
@@ -849,7 +851,7 @@ class PokerCLI:
             host_mark = " (房主)" if name == host_name else ""
             self._add_log(
                 f"  #{p.get('player_id')} {name}{host_mark} "
-                f"筹码={p.get('chips')} 状态="
+                f"筹码={_fmt_chips(int(p.get('chips') or 0))} 状态="
                 f"{'弃牌' if p.get('folded') else '全下' if p.get('all_in') else '在场'}"
             )
 
@@ -948,10 +950,10 @@ class PokerCLI:
         # 关键指标用青色标注"我的筹码"，其余为默认色；
         # 公共牌并入本行，减少一个独立区域的占用
         parts = [
-            f"底池:{pot_total}",
-            f"盲注:{small_blind}/{big_blind}",
-            _style(f"筹码:{my_chips}", Style.CYAN + Style.BOLD),
-            f"最高注:{current_bet}",
+            f"底池:{_fmt_chips(pot_total)}",
+            f"盲注:{_fmt_chips(small_blind)}/{_fmt_chips(big_blind)}",
+            _style(f"筹码:{_fmt_chips(my_chips)}", Style.CYAN + Style.BOLD),
+            f"最高注:{_fmt_chips(current_bet)}",
         ]
         print("  " + "  ".join(parts) + f"    公共牌:{_cards_display(community)}")
 
@@ -961,7 +963,7 @@ class PokerCLI:
         dealer_pos = state.get("dealer_pos", -1)
         current_player_id = state.get("current_player_id")
 
-        print(f"{'玩家':<12} {'筹码':>6} {'本轮':>6} {'状态':<8} {'上次行动'}")
+        print(f"{'玩家':<12} {'筹码':>7} {'本轮':>7} {'状态':<8} {'上次行动'}")
         for i, p in enumerate(players):
             name = p.get("name", "?")
             # 标记庄家(D)与当前行动者(*)
@@ -991,7 +993,7 @@ class PokerCLI:
             if p.get("player_id") == state.get("host_player_id"):
                 marker += _style(" 房主", Style.YELLOW + Style.BOLD)
             row = (
-                f"{display_name:<12} {chips:>6} {current_bet:>6} "
+                f"{display_name:<12} {_fmt_chips(chips):>7} {_fmt_chips(current_bet):>7} "
                 f"{status:<8} {last_action}{marker}"
             )
             if is_me:
@@ -1028,9 +1030,9 @@ class PokerCLI:
         if "check" in options:
             hint_parts.append("2让牌")
         if "call" in options:
-            hint_parts.append(f"2跟注({call_amount})")
+            hint_parts.append(f"2跟注({_fmt_chips(call_amount)})")
         if "raise" in options:
-            hint_parts.append(f"3加注({min_raise}~{max_raise})")
+            hint_parts.append(f"3加注({_fmt_chips(min_raise)}~{_fmt_chips(max_raise)})")
         if "all_in" in options:
             hint_parts.append("4全下")
 
